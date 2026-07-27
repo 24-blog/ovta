@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>職業評価の三軸モデル ― 尊厳 / 重要度 / 稼得</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #0b0a08;
+    --bg-2: #131109;
+    --gold: #c9a24b;
+    --gold-dim: #7a6631;
+    --ember: #b5563a;
+    --ice: #4a7f8f;
+    --ink: #ece6d6;
+    --ink-dim: #8a8370;
+    --line: #2a2620;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background: radial-gradient(120% 120% at 50% -10%, #1a1610 0%, var(--bg) 55%, #060504 100%);
+    color: var(--ink);
+    font-family: 'DM Mono', monospace;
+    overflow: hidden;
+  }
+  #canvas-wrap{ position:fixed; inset:0; }
+  canvas{ display:block; }
+
+  .veil{
+    position:fixed; inset:0; pointer-events:none;
+    background: radial-gradient(60% 50% at 50% 100%, rgba(201,162,75,0.05), transparent 70%);
+  }
+
+  header{
+    position:fixed; top:0; left:0; right:0;
+    padding: 28px 32px 18px;
+    pointer-events:none;
+    background: linear-gradient(to bottom, rgba(6,5,4,0.9), transparent);
+    z-index: 5;
+  }
+  h1{
+    font-family:'Noto Serif JP', serif;
+    font-weight:700;
+    font-size: clamp(18px, 2.4vw, 26px);
+    margin: 0 0 6px;
+    letter-spacing: 0.02em;
+    color: var(--ink);
+  }
+  h1 small{
+    display:block;
+    font-family:'DM Mono', monospace;
+    font-weight:400;
+    font-size: 12px;
+    letter-spacing: 0.18em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+  .thesis{
+    font-family:'Noto Serif JP', serif;
+    font-size: 13.5px;
+    line-height:1.9;
+    color: var(--ink-dim);
+    max-width: 560px;
+  }
+  .thesis b{ color: var(--gold); font-weight:600; }
+  .thesis .criterion{
+    display:inline-block;
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid var(--line);
+    color: var(--gold);
+    font-size: 12px;
+    letter-spacing: 0.02em;
+  }
+
+  #legend{
+    position:fixed; right: 28px; top: 28px;
+    z-index: 5;
+    text-align:right;
+    font-size: 11px;
+    color: var(--ink-dim);
+    line-height: 2.1;
+    letter-spacing: 0.03em;
+  }
+  #legend .row{ display:flex; align-items:center; justify-content:flex-end; gap:8px; }
+  #legend .sw{ width:9px; height:9px; border-radius:50%; display:inline-block; }
+
+  #axes-key{
+    position:fixed; left: 32px; bottom: 28px;
+    z-index:5;
+    font-size: 11.5px;
+    color: var(--ink-dim);
+    line-height: 1.9;
+    background: rgba(19,17,9,0.55);
+    border: 1px solid var(--line);
+    padding: 14px 18px;
+    backdrop-filter: blur(6px);
+    border-radius: 2px;
+    max-width: 300px;
+  }
+  #axes-key div span.axis{ color: var(--gold); font-weight:500; }
+
+  #tooltip{
+    position:fixed;
+    z-index: 20;
+    pointer-events:none;
+    background: rgba(13,12,8,0.94);
+    border: 1px solid var(--gold-dim);
+    padding: 10px 14px;
+    font-size: 12px;
+    line-height: 1.8;
+    color: var(--ink);
+    min-width: 190px;
+    opacity:0;
+    transition: opacity 0.12s ease;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+  #tooltip .name{
+    font-family:'Noto Serif JP', serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--gold);
+    margin-bottom: 4px;
+    letter-spacing:0.02em;
+  }
+  #tooltip .gap-under{ color: var(--ember); }
+  #tooltip .gap-over{ color: var(--ice); }
+
+  #hint{
+    position:fixed; bottom: 28px; right: 28px;
+    font-size: 11px; letter-spacing: 0.04em;
+    color: var(--ink-dim); opacity:0.7;
+    z-index:5; text-align:right;
+    max-width: 260px;
+  }
+
+  @media (max-width: 720px){
+    header{ padding: 18px 18px 12px; }
+    .thesis{ display:none; }
+    #legend{ display:none; }
+    #axes-key{ left:18px; right:18px; bottom:18px; max-width:none; }
+    #hint{ display:none; }
+  }
+</style>
+</head>
+<body>
+
+<div id="canvas-wrap"></div>
+<div class="veil"></div>
+
+<header>
+  <h1><small>Occupational Value — Three Axes</small>職業評価の三軸モデル</h1>
+  <p class="thesis">
+    <b>x = 尊厳</b>は全職業に共通の定数 ― 動かない。<br>
+    <b>y = 重要度</b>と<b>z = 稼得</b>は独立変数であり、本来この二つの相関は高いはずだが、現実には乖離する。<br>
+    金色の対角面は「重要度どおりに支払われる」規範的な理想線。点がそこからどれだけ落ちるかが、格差の実測値になる。<br>
+    <span class="criterion">評価基準（y）：依存人口の規模 ― その機能が失われた場合に、日常生活の継続が困難になる人口の割合・規模。</span>
+  </p>
+</header>
+
+<div id="legend">
+  <div class="row"><span class="sw" style="background:var(--ember)"></span>重要度 &gt; 稼得（過小評価）</div>
+  <div class="row"><span class="sw" style="background:var(--gold)"></span>重要度 ≒ 稼得（整合）</div>
+  <div class="row"><span class="sw" style="background:var(--ice)"></span>稼得 &gt; 重要度（過大評価）</div>
+</div>
+
+<div id="axes-key">
+  <div><span class="axis">x（尊厳）</span> ― 定数。すべての点はこの一枚の面の上にある。</div>
+  <div><span class="axis">y（重要度）</span> ― 依存人口の規模（欠けたとき困る人口の広さ）。</div>
+  <div><span class="axis">z（稼得）</span> ― 市場価格としての収入水準。</div>
+</div>
+
+<div id="tooltip"></div>
+<div id="hint">ドラッグで回転 ・ スクロールで拡大縮小 ・ 点にホバーで重要度と稼得の乖離幅を表示</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ---------- data ----------
+// importance (y), income (z) on a 0-10 illustrative scale.
+// x (dignity) is constant for every occupation.
+// y（重要度）は「依存人口の規模」＝その機能が失われたとき、
+// 日常生活の継続が困難になる人口の割合・規模を基準に評価している。
+const occupations = [
+  { name: '介護士',           y: 7.6, z: 2.6 },
+  { name: '保育士',           y: 7.0, z: 2.8 },
+  { name: '看護師',           y: 8.2, z: 5.2 },
+  { name: '清掃作業員',       y: 9.4, z: 2.0 },
+  { name: '物流ドライバー',   y: 9.0, z: 3.8 },
+  { name: '自衛隊員',         y: 6.0, z: 4.0 },
+  { name: '教師',             y: 6.8, z: 4.2 },
+  { name: '農業従事者',       y: 9.8, z: 3.0 },
+  { name: '一般公務員',       y: 6.2, z: 5.0 },
+  { name: '医師',             y: 7.8, z: 8.8 },
+  { name: '弁護士',           y: 4.2, z: 8.0 },
+  { name: '金融トレーダー',   y: 3.0, z: 9.2 },
+  { name: 'インフルエンサー', y: 2.2, z: 6.8 },
+];
+
+const DIGNITY_X = 0; // constant plane — all points live here
+const SCALE = 3.2;   // world units per unit of y / z
+const AXIS_LEN = 10 * SCALE + 2;
+
+// ---------- scene ----------
+const scene = new THREE.Scene();
+const wrap = document.getElementById('canvas-wrap');
+
+const camera = new THREE.PerspectiveCamera(42, window.innerWidth/window.innerHeight, 0.1, 500);
+camera.position.set(30, 22, 34);
+
+const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+wrap.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.07;
+controls.target.set(0, 8, 8);
+controls.minDistance = 12;
+controls.maxDistance = 90;
+
+scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+const key = new THREE.DirectionalLight(0xffe3b0, 0.9);
+key.position.set(20, 30, 10);
+scene.add(key);
+const rim = new THREE.DirectionalLight(0x4a7f8f, 0.35);
+rim.position.set(-20, 10, -20);
+scene.add(rim);
+
+// ---------- axes ----------
+function axisLine(dir, color){
+  const geo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0,0,0),
+    dir.clone().multiplyScalar(AXIS_LEN)
+  ]);
+  const mat = new THREE.LineBasicMaterial({ color, transparent:true, opacity:0.85 });
+  return new THREE.Line(geo, mat);
+}
+scene.add(axisLine(new THREE.Vector3(1,0,0), 0xc9a24b)); // x - dignity (gold, constant)
+scene.add(axisLine(new THREE.Vector3(0,1,0), 0x8a8370)); // y - importance
+scene.add(axisLine(new THREE.Vector3(0,0,1), 0x8a8370)); // z - income
+
+// faint negative extents for context
+function axisLineNeg(dir, color){
+  const geo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(0,0,0),
+    dir.clone().multiplyScalar(-6)
+  ]);
+  const mat = new THREE.LineBasicMaterial({ color, transparent:true, opacity:0.25 });
+  return new THREE.Line(geo, mat);
+}
+scene.add(axisLineNeg(new THREE.Vector3(1,0,0), 0xc9a24b));
+
+// ---------- the dignity plane (x = constant) ----------
+const planeGeo = new THREE.PlaneGeometry(AXIS_LEN, AXIS_LEN);
+const planeMat = new THREE.MeshBasicMaterial({
+  color: 0xc9a24b, transparent:true, opacity:0.045,
+  side: THREE.DoubleSide, depthWrite:false
+});
+const dignityPlane = new THREE.Mesh(planeGeo, planeMat);
+dignityPlane.rotation.y = Math.PI/2;
+dignityPlane.position.set(DIGNITY_X, AXIS_LEN/2 - 1, AXIS_LEN/2 - 1);
+scene.add(dignityPlane);
+
+// grid lines on the dignity plane (y/z grid)
+const gridGroup = new THREE.Group();
+const gridMat = new THREE.LineBasicMaterial({ color: 0x3a3424, transparent:true, opacity:0.5 });
+for(let i=0;i<=10;i++){
+  const p = i*SCALE;
+  const g1 = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(DIGNITY_X, p, 0), new THREE.Vector3(DIGNITY_X, p, AXIS_LEN-2)
+  ]);
+  gridGroup.add(new THREE.Line(g1, gridMat));
+  const g2 = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(DIGNITY_X, 0, p), new THREE.Vector3(DIGNITY_X, AXIS_LEN-2, p)
+  ]);
+  gridGroup.add(new THREE.Line(g2, gridMat));
+}
+scene.add(gridGroup);
+
+// ---------- the y = z ideal correlation plane ----------
+// a ribbon strip running diagonally where importance == income
+const idealPts = [];
+for(let i=0;i<=10;i++){
+  const p = i*SCALE;
+  idealPts.push(new THREE.Vector3(-3, p, p));
+  idealPts.push(new THREE.Vector3(3, p, p));
+}
+const idealGeo = new THREE.BufferGeometry();
+const idealIdx = [];
+for(let i=0;i<10;i++){
+  const a=i*2,b=i*2+1,c=i*2+2,d=i*2+3;
+  idealIdx.push(a,b,c, b,d,c);
+}
+idealGeo.setFromPoints(idealPts);
+idealGeo.setIndex(idealIdx);
+idealGeo.computeVertexNormals();
+const idealMat = new THREE.MeshBasicMaterial({
+  color: 0xc9a24b, transparent:true, opacity:0.10, side: THREE.DoubleSide, depthWrite:false
+});
+scene.add(new THREE.Mesh(idealGeo, idealMat));
+const idealEdge = new THREE.Line(
+  new THREE.BufferGeometry().setFromPoints(idealPts.filter((_,i)=>i%2===0)),
+  new THREE.LineBasicMaterial({ color:0xc9a24b, transparent:true, opacity:0.7 })
+);
+scene.add(idealEdge);
+
+// ---------- data points ----------
+const raycaster = new THREE.Raycaster();
+raycaster.params.Points = { threshold: 0.6 };
+const mouse = new THREE.Vector2();
+const pointMeshes = [];
+
+function colorFor(y, z){
+  const gap = z - y; // positive = overpaid relative to importance, negative = underpaid
+  if (gap < -1.0) return 0xb5563a; // ember: underpaid
+  if (gap >  1.0) return 0x4a7f8f; // ice: overpaid
+  return 0xc9a24b; // gold: aligned
+}
+
+occupations.forEach(o => {
+  const py = (o.y/10) * (AXIS_LEN-2);
+  const pz = (o.z/10) * (AXIS_LEN-2);
+  const px = DIGNITY_X;
+
+  const geo = new THREE.SphereGeometry(0.34, 24, 24);
+  const mat = new THREE.MeshStandardMaterial({
+    color: colorFor(o.y, o.z),
+    emissive: colorFor(o.y, o.z),
+    emissiveIntensity: 0.35,
+    roughness: 0.4,
+    metalness: 0.2
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(px, py, pz);
+  mesh.userData = { name: o.name, y: o.y, z: o.z };
+  scene.add(mesh);
+  pointMeshes.push(mesh);
+
+  // drop line to the dignity plane baseline (visual stem)
+  const stemGeo = new THREE.BufferGeometry().setFromPoints([
+    new THREE.Vector3(px, 0, pz),
+    new THREE.Vector3(px, py, pz)
+  ]);
+  const stemMat = new THREE.LineBasicMaterial({ color: colorFor(o.y,o.z), transparent:true, opacity:0.35 });
+  scene.add(new THREE.Line(stemGeo, stemMat));
+});
+
+// ---------- axis labels via sprites ----------
+function makeLabel(text, color){
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const scaleF = 4;
+  canvas.width = 256*scaleF; canvas.height = 64*scaleF;
+  ctx.scale(scaleF, scaleF);
+  ctx.font = '600 30px "Noto Serif JP", serif';
+  ctx.fillStyle = color;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 4, 32);
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  const mat = new THREE.SpriteMaterial({ map: tex, transparent:true });
+  const sprite = new THREE.Sprite(mat);
+  sprite.scale.set(6, 1.5, 1);
+  return sprite;
+}
+const labelX = makeLabel('x ・ 尊厳（定数）', '#c9a24b');
+labelX.position.set(AXIS_LEN + 1, 0.2, 0);
+scene.add(labelX);
+const labelY = makeLabel('y ・ 重要度', '#ece6d6');
+labelY.position.set(DIGNITY_X, AXIS_LEN + 0.5, 0);
+scene.add(labelY);
+const labelZ = makeLabel('z ・ 稼得（収入）', '#ece6d6');
+labelZ.position.set(DIGNITY_X, 0.2, AXIS_LEN + 1.5);
+scene.add(labelZ);
+
+occupations.forEach(o => {
+  const py = (o.y/10) * (AXIS_LEN-2);
+  const pz = (o.z/10) * (AXIS_LEN-2);
+  const lbl = makeLabel(o.name, '#8a8370');
+  lbl.scale.set(3.6, 0.9, 1);
+  lbl.position.set(DIGNITY_X + 1.4, py + 0.55, pz);
+  scene.add(lbl);
+});
+
+// ---------- tooltip interaction ----------
+const tooltip = document.getElementById('tooltip');
+renderer.domElement.addEventListener('mousemove', (e) => {
+  mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObjects(pointMeshes);
+  if (hits.length){
+    const d = hits[0].object.userData;
+    const gap = (d.z - d.y).toFixed(1);
+    const gapClass = d.z < d.y ? 'gap-under' : (d.z > d.y ? 'gap-over' : '');
+    const gapText = d.z < d.y
+      ? `重要度が稼得を <b>${Math.abs(gap)}</b> 上回る（過小評価）`
+      : (d.z > d.y ? `稼得が重要度を <b>${Math.abs(gap)}</b> 上回る（過大評価）` : '整合');
+    tooltip.innerHTML = `<div class="name">${d.name}</div>
+      重要度 y = ${d.y.toFixed(1)}<br>
+      稼得&nbsp;&nbsp;z = ${d.z.toFixed(1)}<br>
+      <span class="${gapClass}">${gapText}</span>`;
+    tooltip.style.left = (e.clientX + 16) + 'px';
+    tooltip.style.top = (e.clientY + 16) + 'px';
+    tooltip.style.opacity = 1;
+    document.body.style.cursor = 'pointer';
+  } else {
+    tooltip.style.opacity = 0;
+    document.body.style.cursor = 'default';
+  }
+});
+
+// ---------- resize ----------
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ---------- render loop ----------
+let t = 0;
+function animate(){
+  requestAnimationFrame(animate);
+  t += 0.003;
+  pointMeshes.forEach((m,i) => {
+    m.position.x = DIGNITY_X + Math.sin(t*1.4 + i)*0.04; // faint life on the constant axis
+  });
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
