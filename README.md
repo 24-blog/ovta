@@ -41,5 +41,4 @@ z（稼得）市場価格としての収入水準。
 
 
 ⚠️COPYRIGHT<br>
-Textual commentary written by the repository owner is
-licensed under CC BY-NC-ND 4.0.
+All non-code text authored by the repository owner is licensed under CC BY-NC-ND 4.0.
