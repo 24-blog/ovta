@@ -1,4 +1,4 @@
-[![License](https://img.shields.io/github/license/24-blog/ovta)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-greeeen)](LICENSE)
 
 
 ## モデル設計思想
